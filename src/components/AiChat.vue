@@ -126,6 +126,10 @@
 
           <!-- 差异对比模式 -->
           <div v-if="viewMode === 'diff'" class="diff-view">
+            <div class="diff-labels">
+              <div class="diff-label diff-label-left">原图</div>
+              <div class="diff-label diff-label-right">生成图</div>
+            </div>
             <div class="diff-container" ref="diffContainer">
               <div class="diff-original">
                 <img :src="selectedImageUrl" alt="原图" />
@@ -144,9 +148,6 @@
 
         <!-- 操作按钮 -->
         <div class="result-actions">
-          <button @click="saveGeneratedImage" class="save-btn" :disabled="alreadySaved">
-            {{ alreadySaved ? '已保存' : '保存到素材库' }}
-          </button>
           <button @click="downloadImage" class="download-btn">
             下载图片
           </button>
@@ -177,7 +178,6 @@ import ImageLibrary from './ImageLibrary.vue'
 
 const emit = defineEmits<{
   close: []
-  imageSaved: [image: ImageMetadata]
 }>()
 
 const props = defineProps<{
@@ -198,7 +198,6 @@ const error = ref<string>('')
 const showImagePicker = ref<boolean>(false)
 const viewMode = ref<'single' | 'compare' | 'diff'>('single')
 const diffPosition = ref<number>(50)
-const alreadySaved = ref<boolean>(false)
 
 // 计算属性
 const canGenerate = computed(() => {
@@ -270,7 +269,6 @@ async function generateImage() {
 
   isGenerating.value = true
   error.value = ''
-  alreadySaved.value = false
 
   try {
     // 保存 API Key 到 localStorage
@@ -286,38 +284,11 @@ async function generateImage() {
     generatedImage.value = result
     generatedImageUrl.value = result
 
-    // 自动保存到素材库
-    try {
-      const blob = await imageService.base64ToBlob(result)
-      const file = new File([blob], `ai-generated-${Date.now()}.png`, { type: 'image/png' })
-      const metadata = await imageService.saveImage(file, true)
-      alreadySaved.value = true
-      emit('imageSaved', metadata)
-    } catch (saveErr) {
-      console.warn('自动保存到素材库失败:', saveErr)
-    }
-
   } catch (err) {
     error.value = err instanceof Error ? err.message : '生成图片时发生未知错误'
     console.error('生成图片失败:', err)
   } finally {
     isGenerating.value = false
-  }
-}
-
-// 保存生成的图片
-async function saveGeneratedImage() {
-  if (!generatedImage.value) return
-
-  try {
-    const blob = await imageService.base64ToBlob(generatedImage.value)
-    const file = new File([blob], `ai-generated-${Date.now()}.png`, { type: 'image/png' })
-    const metadata = await imageService.saveImage(file, true)
-    alreadySaved.value = true
-    emit('imageSaved', metadata)
-    alert('图片已保存到素材库')
-  } catch (err) {
-    error.value = '保存图片失败: ' + (err instanceof Error ? err.message : '未知错误')
   }
 }
 
@@ -600,7 +571,7 @@ onUnmounted(() => {
 }
 
 /* 视图模式切换 */
-.view-mode_tabs {
+.view-mode-tabs {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1rem;
@@ -656,12 +627,53 @@ onUnmounted(() => {
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
+.diff-view {
+  /* 禁用文本选择，防止拖拽时产生选中效果 */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.diff-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  position: relative;
+}
+
+.diff-label {
+  position: absolute;
+  top: -2rem;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.diff-label-left {
+  left: 1rem;
+}
+
+.diff-label-right {
+  right: 1rem;
+}
+
 .diff-container {
   position: relative;
   display: inline-block;
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  /* 禁用拖拽选择 */
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
 }
 
 .diff-original,
@@ -680,6 +692,16 @@ onUnmounted(() => {
   display: block;
   max-width: 100%;
   height: auto;
+  /* 禁用图片拖拽和选择 */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  pointer-events: none;
 }
 
 .diff-slider {
@@ -710,7 +732,6 @@ onUnmounted(() => {
   gap: 1rem;
 }
 
-.save-btn,
 .download-btn {
   padding: 0.75rem 1.5rem;
   border: none;
@@ -718,18 +739,6 @@ onUnmounted(() => {
   cursor: pointer;
   font-weight: bold;
   transition: background-color 0.2s;
-}
-
-.save-btn {
-  background: #007bff;
-  color: white;
-}
-
-.save-btn:hover {
-  background: #0056b3;
-}
-
-.download-btn {
   background: #6c757d;
   color: white;
 }
