@@ -144,8 +144,8 @@
 
         <!-- 操作按钮 -->
         <div class="result-actions">
-          <button @click="saveGeneratedImage" class="save-btn">
-            保存到素材库
+          <button @click="saveGeneratedImage" class="save-btn" :disabled="alreadySaved">
+            {{ alreadySaved ? '已保存' : '保存到素材库' }}
           </button>
           <button @click="downloadImage" class="download-btn">
             下载图片
@@ -198,6 +198,7 @@ const error = ref<string>('')
 const showImagePicker = ref<boolean>(false)
 const viewMode = ref<'single' | 'compare' | 'diff'>('single')
 const diffPosition = ref<number>(50)
+const alreadySaved = ref<boolean>(false)
 
 // 计算属性
 const canGenerate = computed(() => {
@@ -269,6 +270,7 @@ async function generateImage() {
 
   isGenerating.value = true
   error.value = ''
+  alreadySaved.value = false
 
   try {
     // 保存 API Key 到 localStorage
@@ -283,6 +285,17 @@ async function generateImage() {
 
     generatedImage.value = result
     generatedImageUrl.value = result
+
+    // 自动保存到素材库
+    try {
+      const blob = await imageService.base64ToBlob(result)
+      const file = new File([blob], `ai-generated-${Date.now()}.png`, { type: 'image/png' })
+      const metadata = await imageService.saveImage(file, true)
+      alreadySaved.value = true
+      emit('imageSaved', metadata)
+    } catch (saveErr) {
+      console.warn('自动保存到素材库失败:', saveErr)
+    }
 
   } catch (err) {
     error.value = err instanceof Error ? err.message : '生成图片时发生未知错误'
@@ -300,7 +313,7 @@ async function saveGeneratedImage() {
     const blob = await imageService.base64ToBlob(generatedImage.value)
     const file = new File([blob], `ai-generated-${Date.now()}.png`, { type: 'image/png' })
     const metadata = await imageService.saveImage(file, true)
-    
+    alreadySaved.value = true
     emit('imageSaved', metadata)
     alert('图片已保存到素材库')
   } catch (err) {

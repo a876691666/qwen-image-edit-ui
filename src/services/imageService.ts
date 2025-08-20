@@ -133,6 +133,12 @@ export class ImageService {
     apiKey: string
   ): Promise<string> {
     try {
+      // 生产环境（如 GitHub Pages）会因跨域无法直接调用接口，这里直接提示并中断
+      if (import.meta.env.PROD) {
+        window.alert('受限于跨域问题，请克隆代码在本地运行');
+        throw new Error('生产环境下已阻止调用：受限于跨域问题，请在本地 dev 环境运行');
+      }
+
       const imageBase64 = await this.blobToBase64(imageBlob);
       
       const messages = [{
@@ -153,7 +159,7 @@ export class ImageService {
       };
 
       const response = await fetch(
-        'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+        '/api/v1/services/aigc/multimodal-generation/generation',
         {
           method: 'POST',
           headers: {

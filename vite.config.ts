@@ -10,4 +10,13 @@ export default defineConfig({
   build: {
     outDir: "./docs",
   },
+  server: {
+    proxy: {
+      "/api/v1": {
+        target: "https://dashscope.aliyuncs.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/v1/, "/api/v1"),
+      },
+    },
+  },
 });
